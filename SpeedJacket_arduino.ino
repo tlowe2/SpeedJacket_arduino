@@ -30,7 +30,7 @@
 #define debug     1
 #define debug1    0
 
-#define SPREAD    2000
+#define SPREAD    3000
 #define PWM_steps 100
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
@@ -59,11 +59,11 @@ int i, j;
 int skip = 0;
 
 // cycling variables
-volatile int head = 4095;
+volatile int head = 4000;
 volatile int tail = head - SPREAD;
 volatile int dir_head = 1;
 volatile int dir_tail = 1;
-int refresh_microsec = 10;
+int refresh_microsec = 50;
 
 void setup() 
 {
@@ -104,13 +104,18 @@ void frameHandler()
 {
   if (!skip)
   {
-    if (head == 0){
+    if (head <= 0){
       dir_head = 1;
-    }else if (head == 4095){
+      if (head < 0){
+        head = 0;
+      }
+    }else if (head >= 4095){
       dir_head = 0;
-    }else if (head > 4095 || head < 0){
-      head = 0;
+      if (head > 4095){
+        head = 4095;
+      }
     }
+    /*
     if (tail == 0){
       dir_tail = 1;
     }else if (tail == 4095){
@@ -118,10 +123,12 @@ void frameHandler()
     }else if (tail > 4095 || tail < 0){
       tail = 0;
     }
+    */
     
     LtoR(head, tail);
 
-    Serial.println("In frame handler");
+    //Serial.println("In frame handler");
+    //Serial.println(head);
 
     driver.write();
     
@@ -130,6 +137,8 @@ void frameHandler()
     }else{
       head = head - PWM_steps;
     }
+    return;
+    /*
     if (dir_tail){
       tail = tail + PWM_steps;
       return;
@@ -137,7 +146,8 @@ void frameHandler()
       tail = tail - PWM_steps;
       return;
     }
-    skip = 30;
+    */
+    skip = 50;
   }
   if (skip)
     skip--;
@@ -169,10 +179,10 @@ void LtoR(int front, int back)
     for (j = 0; j < 5; j++){
       if (arrows[j][i] < 23){
         driver.setLED(arrows[j][i], off[i], 0, 0);
-        Serial.println("In LtoR");
       }
     }
   }
+  //Serial.println("In LtoR");
 }
 
 void pulseOut(int front, int back)
@@ -183,21 +193,26 @@ void pulseOut(int front, int back)
 void findOffsets(int num_grps)
 {
   int offset = SPREAD/num_grps;
-
+  int prev_dir = dir_head;
+  
   off[0] = head;
 
   for (i = 1; i < num_grps; i++){
-    if (dir_head){
+    if (prev_dir){
       off[i] = off[i-1] - offset;
       if (off[i] < 0){
         off[i] = offset - off[i-1];
+        prev_dir = !prev_dir;
       }
-    }else if (!dir_head){
+    }else if (!prev_dir){
       off[i] = off[i-1] + offset;
       if (off[i] > 4095){
         off[i] = 4095 - (offset - (4095 - off[i-1]));
+        prev_dir = !prev_dir;
       }
     }
+    Serial.print(i);
+    Serial.print(" ");
     Serial.println(off[i]);
   }
 }
