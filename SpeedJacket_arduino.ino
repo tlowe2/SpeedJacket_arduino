@@ -30,28 +30,29 @@
 #define debug     1
 #define debug1    0
 
-#define OFFSET    200
-#define SWEEP     23
+#define SPREAD    2000
+#define PWM_steps 100
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
 
 void frameHandler(void);
+void findOffsets(int num_grps);
 void allOff(void);
 void allOn(void);
-void initGroups(void);
+
 void pulseOut(int front, int back);
+void LtoR(int front, int back);
 
 // initialize holding arrays for groupings
-int leftarrow[6];
-int lmarrow[4];
-int lsarrow[4];
-int rightarrow[6];
-int rmarrow[4];
-int rsarrow[4];
-int center[2];
-int arrows[6][6][4][4][4][4][2];
+int arrows[5][7] = {
+    {11, 64, 64, 64, 64, 64, 12} ,
+    {10, 6, 3, 64, 20, 17, 13} ,
+    {9, 5, 2, 0, 21, 18, 14} ,
+    {8, 4, 1, 64, 22, 19, 15} ,
+    {7, 64, 64, 64, 64, 64, 16}
+  };
+int off[23];
 
-int *frame;
 
 // global vars
 int i, j;
@@ -59,10 +60,10 @@ int skip = 0;
 
 // cycling variables
 volatile int head = 4095;
-volatile int tail = head - OFFSET*(SWEEP-1);
+volatile int tail = head - SPREAD;
 volatile int dir_head = 1;
 volatile int dir_tail = 1;
-int refresh_microsec = 500;
+int refresh_microsec = 10;
 
 void setup() 
 {
@@ -75,29 +76,6 @@ void setup()
 
   // initialize timer interrupt for frame refresh
   int buff = 16*refresh_microsec;
-
-  // Populate the grouping arrays of LED numbers, adding sentinel at the end
-  for (i = 0; i < 5; i++)
-  {
-    leftarrow[i] = 11 - i;
-    rightarrow[i] = 12 + i;
-
-    if (i < 3)
-    {
-      lmarrow[i] = 6 - i;
-      rmarrow[i] = 17 + i;
-      lsarrow[i] = 3 - i;
-      rsarrow[i] = 20 + i;  
-    }
-  }
-  leftarrow[5] = 64;
-  rightarrow[5] = 64;
-  lmarrow[3] = 64;
-  rmarrow[3] = 64;
-  lsarrow[3] = 64;
-  rsarrow[3] = 64;
-  center[0] = 0;
-  center[1] = 64;
 
   // flash 3 times after main setup
   allOff();
@@ -119,41 +97,6 @@ void setup()
 
 void loop() 
 {
-  pulseOut(); 
-
-  if (debug1)
-  {
-    for (i = 0; i < 5; i++)
-    {
-      Serial.print("leftarrow");
-      Serial.print(i);
-      Serial.print(" ");
-      Serial.println(leftarrow[i]);
-      Serial.print("rightarrow");
-      Serial.print(i);
-      Serial.print(" ");
-      Serial.println(rightarrow[i]);
-      if (i < 3)
-      {
-        Serial.print("lmarrow");
-        Serial.print(i);
-        Serial.print(" ");
-        Serial.println(lmarrow[i]);
-        Serial.print("rmarrow");
-        Serial.print(i);
-        Serial.print(" ");
-        Serial.println(rmarrow[i]);
-        Serial.print("lsarrow");
-        Serial.print(i);
-        Serial.print(" ");
-        Serial.println(lsarrow[i]);
-        Serial.print("rsarrow");
-        Serial.print(i);
-        Serial.print(" ");
-        Serial.println(rsarrow[i]);
-      }
-    }
-  }
 
 }
 
@@ -176,22 +119,28 @@ void frameHandler()
       tail = 0;
     }
     
-    pulseOut(head, tail);
+    LtoR(head, tail);
+
+    Serial.println("In frame handler");
+
+    driver.write();
     
     if (dir_head){
-      head++;
+      head = head + PWM_steps;
     }else{
-      head--;
+      head = head - PWM_steps;
     }
     if (dir_tail){
-      tail++;
+      tail = tail + PWM_steps;
       return;
     }else{
-      tail--;
+      tail = tail - PWM_steps;
       return;
     }
+    skip = 30;
   }
-  skip--;
+  if (skip)
+    skip--;
 }
 
 void allOff()
@@ -212,8 +161,43 @@ void allOn()
   driver.write();
 }
 
+void LtoR(int front, int back)
+{
+  findOffsets(7);
+
+  for (i = 0; i < 7; i++){
+    for (j = 0; j < 5; j++){
+      if (arrows[j][i] < 23){
+        driver.setLED(arrows[j][i], off[i], 0, 0);
+        Serial.println("In LtoR");
+      }
+    }
+  }
+}
+
 void pulseOut(int front, int back)
 {
-  frame = leftarrow[0];
-  while(*frame)
+  
+}
+
+void findOffsets(int num_grps)
+{
+  int offset = SPREAD/num_grps;
+
+  off[0] = head;
+
+  for (i = 1; i < num_grps; i++){
+    if (dir_head){
+      off[i] = off[i-1] - offset;
+      if (off[i] < 0){
+        off[i] = offset - off[i-1];
+      }
+    }else if (!dir_head){
+      off[i] = off[i-1] + offset;
+      if (off[i] > 4095){
+        off[i] = 4095 - (offset - (4095 - off[i-1]));
+      }
+    }
+    Serial.println(off[i]);
+  }
 }
