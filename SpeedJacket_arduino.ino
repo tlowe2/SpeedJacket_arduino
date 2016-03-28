@@ -31,14 +31,15 @@
 #define debug1    0
 
 #define OFFSET    200
-#define NUMLEDS   23
+#define SWEEP     23
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
 
 void frameHandler(void);
 void allOff(void);
 void allOn(void);
-void pulseOut(void);
+void initGroups(void);
+void pulseOut(int front, int back);
 
 // initialize holding arrays for groupings
 int leftarrow[6];
@@ -48,6 +49,7 @@ int rightarrow[6];
 int rmarrow[4];
 int rsarrow[4];
 int center[2];
+int arrows[6][6][4][4][4][4][2];
 
 int *frame;
 
@@ -57,9 +59,9 @@ int skip = 0;
 
 // cycling variables
 volatile int head = 4095;
-volatile int tail = head - OFFSET*(NUMLEDS-1);
-volatile int dir_i = 1;
-volatile int dir_j = 1;
+volatile int tail = head - OFFSET*(SWEEP-1);
+volatile int dir_head = 1;
+volatile int dir_tail = 1;
 int refresh_microsec = 500;
 
 void setup() 
@@ -117,7 +119,7 @@ void setup()
 
 void loop() 
 {
-  pulseOut(10); 
+  pulseOut(); 
 
   if (debug1)
   {
@@ -159,8 +161,37 @@ void frameHandler()
 {
   if (!skip)
   {
+    if (head == 0){
+      dir_head = 1;
+    }else if (head == 4095){
+      dir_head = 0;
+    }else if (head > 4095 || head < 0){
+      head = 0;
+    }
+    if (tail == 0){
+      dir_tail = 1;
+    }else if (tail == 4095){
+      dir_tail = 0;
+    }else if (tail > 4095 || tail < 0){
+      tail = 0;
+    }
     
+    pulseOut(head, tail);
+    
+    if (dir_head){
+      head++;
+    }else{
+      head--;
+    }
+    if (dir_tail){
+      tail++;
+      return;
+    }else{
+      tail--;
+      return;
+    }
   }
+  skip--;
 }
 
 void allOff()
@@ -181,10 +212,8 @@ void allOn()
   driver.write();
 }
 
-void pulseOut(void)
+void pulseOut(int front, int back)
 {
-  for (i = 0; i < 4095; i++)
-  {
-
-  }
+  frame = leftarrow[0];
+  while(*frame)
 }
