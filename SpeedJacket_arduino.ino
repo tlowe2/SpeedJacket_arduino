@@ -35,7 +35,6 @@
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
 
-void frameHandler(void);
 void allOff(void);
 void allOn(void);
 void pulseOut(void);
@@ -111,13 +110,15 @@ void setup()
   delay(200);
   allOff();
 
-  Timer1.initialize(buff);
-  Timer1.attachInterrupt(frameHandler);
 }
 
 void loop() 
 {
-  pulseOut(10); 
+  delay(200);
+  allOff();
+  delay(200);
+  allOn();
+  delay(200);
 
   if (debug1)
   {
@@ -155,13 +156,6 @@ void loop()
 
 }
 
-void frameHandler()
-{
-  if (!skip)
-  {
-    
-  }
-}
 
 void allOff()
 {
@@ -179,12 +173,4 @@ void allOn()
     driver.setLED(i, 4095, 0, 0);
   }
   driver.write();
-}
-
-void pulseOut(void)
-{
-  for (i = 0; i < 4095; i++)
-  {
-
-  }
 }
