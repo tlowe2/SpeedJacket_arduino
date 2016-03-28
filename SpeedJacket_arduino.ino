@@ -19,41 +19,62 @@
  ****************************************************/
 
 #include "Adafruit_TLC5947.h"
+#include "TimerOne.h"
 
 // How many boards do you have chained?
 #define NUM_TLC5974 1
 
-#define data    11
-#define clk     10
-#define latch   3
-#define debug   1
-#define debug1  0
+#define data      11
+#define clk       10
+#define latch     3
+#define debug     1
+#define debug1    0
+
+#define OFFSET    200
+#define NUMLEDS   23
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
 
-void pulseOut(int spd);
+void frameHandler(void);
+void allOff(void);
+void allOn(void);
+void pulseOut(void);
 
 // initialize holding arrays for groupings
-int leftarrow[5];
-int lmarrow[3];
-int lsarrow[3];
-int rightarrow[5];
-int rmarrow[3];
-int rsarrow[3];
-int center = 0;
+int leftarrow[6];
+int lmarrow[4];
+int lsarrow[4];
+int rightarrow[6];
+int rmarrow[4];
+int rsarrow[4];
+int center[2];
+
+int *frame;
 
 // global vars
-int i, ;
+int i, j;
+int skip = 0;
 
-void setup() {
+// cycling variables
+volatile int head = 4095;
+volatile int tail = head - OFFSET*(NUMLEDS-1);
+volatile int dir_i = 1;
+volatile int dir_j = 1;
+int refresh_microsec = 500;
+
+void setup() 
+{
   if (debug){
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println("debug on @ 115200");
   }
   
   driver.begin();   // initialize the driver
 
-  // Populate the grouping arrays of LED numbers
+  // initialize timer interrupt for frame refresh
+  int buff = 16*refresh_microsec;
+
+  // Populate the grouping arrays of LED numbers, adding sentinel at the end
   for (i = 0; i < 5; i++)
   {
     leftarrow[i] = 11 - i;
@@ -67,14 +88,35 @@ void setup() {
       rsarrow[i] = 20 + i;  
     }
   }
-  for (i = 0; i < 24; i++)
-  {
-    driver.setLED(i, 0, 0, 0);
-  }
-  driver.write();
+  leftarrow[5] = 64;
+  rightarrow[5] = 64;
+  lmarrow[3] = 64;
+  rmarrow[3] = 64;
+  lsarrow[3] = 64;
+  rsarrow[3] = 64;
+  center[0] = 0;
+  center[1] = 64;
+
+  // flash 3 times after main setup
+  allOff();
+  allOn();
+  delay(200);
+  allOff();
+  delay(200);
+  allOn();
+  delay(200);
+  allOff();
+  delay(200);
+  allOn();
+  delay(200);
+  allOff();
+
+  Timer1.initialize(buff);
+  Timer1.attachInterrupt(frameHandler);
 }
 
-void loop() {
+void loop() 
+{
   pulseOut(10); 
 
   if (debug1)
@@ -113,10 +155,36 @@ void loop() {
 
 }
 
-void pulseOut(int wait)
+void frameHandler()
+{
+  if (!skip)
+  {
+    
+  }
+}
+
+void allOff()
+{
+  for (i = 0; i < 24; i++)
+  {
+    driver.setLED(i, 0, 0, 0);
+  }
+  driver.write();
+}
+
+void allOn()
+{
+  for (i = 0; i < 24; i++)
+  {
+    driver.setLED(i, 4095, 0, 0);
+  }
+  driver.write();
+}
+
+void pulseOut(void)
 {
   for (i = 0; i < 4095; i++)
   {
-    
+
   }
 }
