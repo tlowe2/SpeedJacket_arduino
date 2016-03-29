@@ -45,21 +45,21 @@ void LtoR(int front, int back);
 void pulseIndividual();
 
 // initialize holding arrays for groupings
-int arrows[5][7] = {
+volatile const int arrows[5][7] = {
     {11, 64, 64, 64, 64, 64, 12} ,
     {10, 6, 3, 64, 20, 17, 13} ,
     {9, 5, 2, 0, 21, 18, 14} ,
     {8, 4, 1, 64, 22, 19, 15} ,
     {7, 64, 64, 64, 64, 64, 16}
   };
-int doublearrows[5][8] = {
+volatile const int doublearrows[5][8] = {
     {11, 12, 64, 64, 64, 64, 64, 64} ,
     {10, 13, 6, 17, 20, 3, 64, 64} ,
     {9, 14, 5, 18, 21, 2, 0, 64} ,
     {8, 15, 4, 19, 22, 1, 64, 64} ,
     {7, 16, 64, 64, 64, 64, 64, 64}
   };
-int outarrows[5][8] = {
+volatile const int outarrows[5][8] = {
     {64, 64, 64, 64, 64, 64, 12, 11} ,
     {64, 64, 3, 20, 17, 6, 13, 10} ,
     {64, 0, 2, 21, 18, 5, 14, 9} ,
@@ -73,6 +73,7 @@ SoftwareSerial GPS(9, 2); // RX, TX
 
 short lockout = 0;
 int avgvel = 0;
+int ivel[4];
 
 int charToInt(char ten, char one);
 
@@ -125,7 +126,6 @@ void loop()
   char cvel[4];
   char *parse;
   char holder[64];
-  int ivel[4];
 
   for (k = 0; k < 4; k++){
     ivel[k] = 0;
@@ -158,24 +158,32 @@ void loop()
           k++;
         parse++;
       }
-      k = 0;
-      while (*parse != '.' && *parse != ','){
-        cvel[k] = *parse;
-        k++;
+      while (*parse != '.'){
         parse++;
       }
-      if (k == 0){
-        cvel[1] = cvel[0];
-        cvel[0] = 0;
+      k = 0;
+      while (*parse != ','){
+        parse--;
+        cvel[k] = *parse;
+        k++;
       }
 
+      Serial.print("cvel[0] ");
+      Serial.println(cvel[0]);
+      
       for (k = 3; k > 0; k--)
         ivel[k] = ivel[k-1]; 
-      
-      ivel[0] = charToInt(cvel[0], cvel[1]);
+
+      if (cvel[0] == '\n'){
+        ivel[0] = charToInt(cvel[0], cvel[1]);
+      }else{
+        ivel[0] = 0;
+      }
+      Serial.print("ivel[0] ");
       Serial.println(ivel[0]);
 
       avgvel = (ivel [0] + ivel[1] + ivel[2] + ivel[3]) >> 2;
+      Serial.print("avgvel ");
       Serial.println(avgvel);
       break;
     }
@@ -192,7 +200,7 @@ int charToInt( char ten, char one)
   int iten = ten;
   int ione = one;
 
-  return 10*iten + ione;
+  return 10*(iten - '0') + (ione - '0');
 }
 
 void frameHandler()
