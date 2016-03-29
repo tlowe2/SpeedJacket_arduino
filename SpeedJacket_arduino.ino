@@ -131,9 +131,11 @@ void loop()
   char *parse;
   char holder[64];
 
-  // initialize character velocity
-  for (k = 0; k < 4; k++){
-    cvel[k] = '\n';
+  // initialize character velocity and holder string
+  for (k = 0; k < 64; k++){
+    holder[64] = '0';
+    if (k < 4)
+      cvel[k] = '\n';
   }
 
   // GPS parsing loop
@@ -162,6 +164,10 @@ void loop()
     if (holder[k] == '\n'){
       
       lockout = 0;      // remove the lockout for this section
+      
+      if (holder[17] != 'A') // if the data is invalid, ignore
+        break;
+        
       parse = holder;   // set the parser at the holder
 
       // send the parser to the velocity area (7 commas in)
@@ -182,20 +188,31 @@ void loop()
       while (*parse != ','){
         parse--;
         cvel[k] = *parse;
+        Serial.print("cvel[");
+        Serial.print(k);
+        Serial.print("] ");
+        Serial.write(cvel[k]);
+        Serial.println();
         k++;
       }
 
       //Serial.print("cvel[0] ");
       //Serial.println(cvel[0]);
       
-      for (k = 3; k > 0; k--)
+      for (k = 3; k > 0; k--){
         ivel[k] = ivel[k-1]; 
-
-      if (cvel[0] == '\n'){
-        ivel[0] = 0;
-      }else{
-        ivel[0] = charToInt(cvel[1], cvel[0]);
+        Serial.print("ivel[");
+        Serial.print(k);
+        Serial.print("] ");
+        Serial.println(ivel[k]);
       }
+
+      // if speed is single digits, no ten
+      if (cvel[1] == ',')
+        cvel[1] = '0';
+        
+      ivel[0] = charToInt(cvel[1], cvel[0]);
+      
       Serial.print("ivel[0] ");
       Serial.println(ivel[0]);
 
