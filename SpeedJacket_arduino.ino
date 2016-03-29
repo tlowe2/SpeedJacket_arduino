@@ -20,6 +20,7 @@
 
 #include "Adafruit_TLC5947.h"
 #include "TimerOne.h"
+#include <SoftwareSerial.h>
 
 // How many boards do you have chained?
 #define NUM_TLC5974 1
@@ -31,7 +32,6 @@
 #define debug1    0
 
 #define SPREAD    3000
-#define PWM_steps 100
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
 
@@ -53,9 +53,16 @@ int arrows[5][7] = {
   };
 int off[23];
 
+//
+SoftwareSerial GPS(9, 2); // RX, TX
+
+short lockout = 0;
+int avgvel = 0;
+
+int charToInt(char ten, char one);
 
 // global vars
-int i, j;
+int i, j, k;
 int skip = 0;
 
 // cycling variables
@@ -63,7 +70,8 @@ volatile int head = 4000;
 volatile int tail = head - SPREAD;
 volatile int dir_head = 1;
 volatile int dir_tail = 1;
-int refresh_microsec = 50;
+int pwm_steps = 250;
+int refresh_microsec = 25000;
 
 void setup() 
 {
@@ -71,11 +79,13 @@ void setup()
     Serial.begin(115200);
     Serial.println("debug on @ 115200");
   }
+
+  GPS.begin(9600);  // start the GPS serial connection
   
   driver.begin();   // initialize the driver
 
   // initialize timer interrupt for frame refresh
-  int buff = 16*refresh_microsec;
+  int buff = refresh_microsec;
 
   // flash 3 times after main setup
   allOff();
@@ -97,11 +107,78 @@ void setup()
 
 void loop() 
 {
+  char cvel[4];
+  char *parse;
+  char holder[64];
+  int ivel[4];
 
+  for (k = 0; k < 4; k++){
+    ivel[k] = 0;
+    cvel[k] = '\n';
+  }
+  k = 0;
+  while (GPS.available()){
+    lockout = 1;
+    holder[k] = GPS.read();
+
+    if (holder[0] != '$'){
+      lockout = 0;
+      break;
+    }
+    if (k == 3){
+      if (holder[k] != 'R'){
+        lockout = 0;
+        break;
+      }
+    }
+    
+    Serial.write(holder[k]);
+    if (holder[k] == '\n'){
+      lockout = 0;
+      parse = holder;
+
+      k = 0;
+      while (k != 7){
+        if (*parse == ',')
+          k++;
+        parse++;
+      }
+      k = 0;
+      while (*parse != '.' && *parse != ','){
+        cvel[k] = *parse;
+        k++;
+        parse++;
+      }
+
+      for (k = 3; k > 0; k--)
+        ivel[k] = ivel[k-1]; 
+      
+      ivel[0] = charToInt(cvel[0], cvel[1]);
+
+      avgvel = (ivel [0] + ivel[1] + ivel[2] + ivel[3]) >> 2;
+      break;
+    }
+    k++;
+  }
+   
+  //Serial.println("out");
+  
+}
+
+int charToInt( char ten, char one)
+{
+  //int ihun = hundred;
+  int iten = ten;
+  int ione = one;
+
+  return 10*iten + ione;
 }
 
 void frameHandler()
 {
+  if (lockout)
+    return;
+    
   if (!skip)
   {
     if (head <= 0){
@@ -133,24 +210,12 @@ void frameHandler()
     driver.write();
     
     if (dir_head){
-      head = head + PWM_steps;
+      head = head + pwm_steps;
     }else{
-      head = head - PWM_steps;
+      head = head - pwm_steps;
     }
     return;
-    /*
-    if (dir_tail){
-      tail = tail + PWM_steps;
-      return;
-    }else{
-      tail = tail - PWM_steps;
-      return;
-    }
-    */
-    skip = 50;
   }
-  if (skip)
-    skip--;
 }
 
 void allOff()
@@ -211,8 +276,8 @@ void findOffsets(int num_grps)
         prev_dir = !prev_dir;
       }
     }
-    Serial.print(i);
-    Serial.print(" ");
-    Serial.println(off[i]);
+    //Serial.print(i);
+    //Serial.print(" ");
+    //Serial.println(off[i]);
   }
 }
