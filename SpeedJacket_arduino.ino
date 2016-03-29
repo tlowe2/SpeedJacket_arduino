@@ -40,8 +40,9 @@ void findOffsets(int num_grps);
 void allOff(void);
 void allOn(void);
 
-void pulseOut(int front, int back);
+void pulse_in(int front, int back);
 void LtoR(int front, int back);
+void pulseIndividual();
 
 // initialize holding arrays for groupings
 int arrows[5][7] = {
@@ -50,6 +51,20 @@ int arrows[5][7] = {
     {9, 5, 2, 0, 21, 18, 14} ,
     {8, 4, 1, 64, 22, 19, 15} ,
     {7, 64, 64, 64, 64, 64, 16}
+  };
+int doublearrows[5][8] = {
+    {11, 12, 64, 64, 64, 64, 64, 64} ,
+    {10, 13, 6, 17, 20, 3, 64, 64} ,
+    {9, 14, 5, 18, 21, 2, 0, 64} ,
+    {8, 15, 4, 19, 22, 1, 64, 64} ,
+    {7, 16, 64, 64, 64, 64, 64, 64}
+  };
+int outarrows[5][8] = {
+    {64, 64, 64, 64, 64, 64, 12, 11} ,
+    {64, 64, 3, 20, 17, 6, 13, 10} ,
+    {64, 0, 2, 21, 18, 5, 14, 9} ,
+    {64, 64, 1, 22, 19, 4, 15, 8} ,
+    {64, 64, 64, 64, 64, 64, 16, 7}
   };
 int off[23];
 
@@ -149,13 +164,19 @@ void loop()
         k++;
         parse++;
       }
+      if (k == 0){
+        cvel[1] = cvel[0];
+        cvel[0] = 0;
+      }
 
       for (k = 3; k > 0; k--)
         ivel[k] = ivel[k-1]; 
       
       ivel[0] = charToInt(cvel[0], cvel[1]);
+      Serial.println(ivel[0]);
 
       avgvel = (ivel [0] + ivel[1] + ivel[2] + ivel[3]) >> 2;
+      Serial.println(avgvel);
       break;
     }
     k++;
@@ -179,43 +200,42 @@ void frameHandler()
   if (lockout)
     return;
     
-  if (!skip)
-  {
-    if (head <= 0){
-      dir_head = 1;
-      if (head < 0){
-        head = 0;
-      }
-    }else if (head >= 4095){
-      dir_head = 0;
-      if (head > 4095){
-        head = 4095;
-      }
+  if (head <= 0){
+    dir_head = 1;
+    if (head < 0){
+      head = 0;
     }
-    /*
-    if (tail == 0){
-      dir_tail = 1;
-    }else if (tail == 4095){
-      dir_tail = 0;
-    }else if (tail > 4095 || tail < 0){
-      tail = 0;
+  }else if (head >= 4095){
+    dir_head = 0;
+    if (head > 4095){
+      head = 4095;
     }
-    */
-    
-    LtoR(head, tail);
-
-    //Serial.println("In frame handler");
-    //Serial.println(head);
-
-    driver.write();
-    
-    if (dir_head){
-      head = head + pwm_steps;
-    }else{
-      head = head - pwm_steps;
-    }
-    return;
   }
+  /*
+  if (tail == 0){
+    dir_tail = 1;
+  }else if (tail == 4095){
+    dir_tail = 0;
+  }else if (tail > 4095 || tail < 0){
+    tail = 0;
+  }
+  */
+
+  //LtoR(head,tail);
+  //pulse_in(head, tail);
+  pulseIndividual();  
+  
+  //Serial.println("In frame handler");
+  //Serial.println(head);
+
+  driver.write();
+  
+  if (dir_head){
+    head = head + pwm_steps;
+  }else{
+    head = head - pwm_steps;
+  }
+  return;
 }
 
 void allOff()
@@ -250,9 +270,36 @@ void LtoR(int front, int back)
   //Serial.println("In LtoR");
 }
 
-void pulseOut(int front, int back)
+void pulse_in(int front, int back)
 {
-  
+  findOffsets(4);
+
+  for (i = 7; i >= 0; i=i-2){
+    for (j = 0; j < 5; j++){
+      if (doublearrows[j][i] < 23){
+        driver.setLED(doublearrows[j][i], off[i/2], 0, 0);
+      }
+      if (doublearrows[j][i-1] < 23){
+        driver.setLED(doublearrows[j][i-1], off[i/2], 0, 0);
+      }
+    }
+  }
+}
+
+void pulseIndividual()
+{
+  for (j = 0; j < 5; j++){
+    if (outarrows[j][i] < 23){
+      driver.setLED(outarrows[j][i], head, 0, 0);
+    }
+    if (outarrows[j][i+1] < 23){
+      driver.setLED(outarrows[j][i+1], head, 0, 0);
+    }
+  }  
+  if (head == 0)
+    i = i+2;
+  if (i > 6)
+    i = 0;
 }
 
 void findOffsets(int num_grps)
