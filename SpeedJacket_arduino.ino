@@ -31,6 +31,8 @@
 #define debug     1
 #define debug1    0
 
+#define MOVAVG    2     //only 2 or 4 AND THAT'S IT!!!
+
 #define SPREAD    3000
 
 Adafruit_TLC5947 driver = Adafruit_TLC5947(NUM_TLC5974, clk, data, latch);
@@ -73,7 +75,7 @@ SoftwareSerial GPS(9, 2); // RX, TX
 
 short lockout = 0;
 volatile int avgvel = 0;
-volatile int ivel[4];
+volatile int ivel[MOVAVG];
 
 int charToInt(char ten, char one);
 
@@ -130,6 +132,7 @@ void loop()
   char cvel[4];
   char *parse;
   char holder[64];
+  int sum = 0;
 
   // initialize character velocity and holder string
   for (k = 0; k < 64; k++){
@@ -199,8 +202,9 @@ void loop()
       //Serial.print("cvel[0] ");
       //Serial.println(cvel[0]);
       
-      for (k = 3; k > 0; k--){
+      for (k = (MOVAVG-1); k > 0; k--){
         ivel[k] = ivel[k-1]; 
+        
         Serial.print("ivel[");
         Serial.print(k);
         Serial.print("] ");
@@ -216,7 +220,11 @@ void loop()
       Serial.print("ivel[0] ");
       Serial.println(ivel[0]);
 
-      avgvel = (ivel [0] + ivel[1] + ivel[2] + ivel[3]) >> 2;
+      for (k = 0; k < MOVAVG; k++)
+        sum = sum + ivel[k];
+      
+      avgvel = sum >> MOVAVG/2;
+      
       Serial.print("avgvel ");
       Serial.println(avgvel);
       break;
@@ -264,10 +272,16 @@ void frameHandler()
     tail = 0;
   }
   */
-
-  //LtoR(head,tail);
+  if (avgvel < 10){
+    pwm_steps = 100;
+    pulse_in(head, tail);
+  }else if (avgvel >= 10){
+    pwm_steps = 400;
+    pulseIndividual();
+  }
+  //LtoR(head, tail);
   //pulse_in(head, tail);
-  pulseIndividual();  
+  //pulseIndividual();  
   
   //Serial.println("In frame handler");
   //Serial.println(head);
