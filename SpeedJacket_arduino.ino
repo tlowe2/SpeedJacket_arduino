@@ -66,14 +66,14 @@ volatile const int outarrows[5][8] = {
     {64, 64, 1, 22, 19, 4, 15, 8} ,
     {64, 64, 64, 64, 64, 64, 16, 7}
   };
-int off[23];
+volatile int off[23];
 
 //
 SoftwareSerial GPS(9, 2); // RX, TX
 
 short lockout = 0;
-int avgvel = 0;
-int ivel[4];
+volatile int avgvel = 0;
+volatile int ivel[4];
 
 int charToInt(char ten, char one);
 
@@ -86,7 +86,7 @@ volatile int head = 4000;
 volatile int tail = head - SPREAD;
 volatile int dir_head = 1;
 volatile int dir_tail = 1;
-int pwm_steps = 250;
+volatile int pwm_steps = 250;
 int refresh_microsec = 25000;
 
 void setup() 
@@ -103,6 +103,10 @@ void setup()
   // initialize timer interrupt for frame refresh
   int buff = refresh_microsec;
 
+  // initialize moving average
+  for (k = 0; k < 4; k++)
+    ivel[k] = 0;
+    
   // flash 3 times after main setup
   allOff();
   allOn();
@@ -127,19 +131,24 @@ void loop()
   char *parse;
   char holder[64];
 
+  // initialize character velocity
   for (k = 0; k < 4; k++){
-    ivel[k] = 0;
     cvel[k] = '\n';
   }
+
+  // GPS parsing loop
   k = 0;
   while (GPS.available()){
     lockout = 1;
     holder[k] = GPS.read();
 
+    // If it is leftover data, ignore
     if (holder[0] != '$'){
       lockout = 0;
       break;
     }
+
+    // If it is not the RMC NMEA string, ignore
     if (k == 3){
       if (holder[k] != 'R'){
         lockout = 0;
@@ -148,19 +157,27 @@ void loop()
     }
     
     Serial.write(holder[k]);
-    if (holder[k] == '\n'){
-      lockout = 0;
-      parse = holder;
 
+    // if we have reached the end of the RMC string, begin parsing
+    if (holder[k] == '\n'){
+      
+      lockout = 0;      // remove the lockout for this section
+      parse = holder;   // set the parser at the holder
+
+      // send the parser to the velocity area (7 commas in)
       k = 0;
       while (k != 7){
         if (*parse == ',')
           k++;
         parse++;
       }
-      while (*parse != '.'){
+
+      // send the parser to the decimal point of the velocity
+      do{
         parse++;
-      }
+      }while (*parse != '.' && *parse != ',');
+
+      // parse from LSB to MSB
       k = 0;
       while (*parse != ','){
         parse--;
@@ -168,16 +185,16 @@ void loop()
         k++;
       }
 
-      Serial.print("cvel[0] ");
-      Serial.println(cvel[0]);
+      //Serial.print("cvel[0] ");
+      //Serial.println(cvel[0]);
       
       for (k = 3; k > 0; k--)
         ivel[k] = ivel[k-1]; 
 
       if (cvel[0] == '\n'){
-        ivel[0] = charToInt(cvel[0], cvel[1]);
-      }else{
         ivel[0] = 0;
+      }else{
+        ivel[0] = charToInt(cvel[1], cvel[0]);
       }
       Serial.print("ivel[0] ");
       Serial.println(ivel[0]);
@@ -198,6 +215,8 @@ int charToInt( char ten, char one)
 {
   //int ihun = hundred;
   int iten = ten;
+  if (ten == '\n')
+    iten = '0';
   int ione = one;
 
   return 10*(iten - '0') + (ione - '0');
