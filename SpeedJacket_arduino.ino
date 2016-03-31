@@ -160,6 +160,10 @@ void loop()
         break;
       }
     }
+    if (holder[k] == 'V'){ // if the GPS isn't connected, ignore
+        avgvel = -1;
+        break;
+    }
     
     Serial.write(holder[k]);
     //Serial.print(" ");
@@ -170,10 +174,6 @@ void loop()
       
       lockout = 0;      // remove the lockout for this section
 
-      if (holder[17] == 'V'){ // if the data is invalid, ignore
-        avgvel = -1;
-        break;
-      }
       if (holder[17] != 'A') // if the data is invalid, ignore
         break;
         
