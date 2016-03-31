@@ -42,8 +42,9 @@ void findOffsets(int num_grps);
 void allOff(void);
 void allOn(void);
 
-void pulse_in(int front, int back);
-void LtoR(int front, int back);
+void pulse_in();
+void pulse_out();
+void LtoR();
 void pulseIndividual();
 
 // initialize holding arrays for groupings
@@ -95,7 +96,6 @@ void setup()
 {
   if (debug){
     Serial.begin(115200);
-    Serial.println("debug on @ 115200");
   }
 
   GPS.begin(9600);  // start the GPS serial connection
@@ -131,7 +131,7 @@ void loop()
 {
   char cvel[4];
   char *parse;
-  char holder[64];
+  char holder[128];
   int sum = 0;
 
   // initialize character velocity and holder string
@@ -162,12 +162,18 @@ void loop()
     }
     
     Serial.write(holder[k]);
-
+    //Serial.print(" ");
+    //Serial.println();
     // if we have reached the end of the RMC string, begin parsing
     if (holder[k] == '\n'){
+      //Serial.println("in parsing");
       
       lockout = 0;      // remove the lockout for this section
-      
+
+      if (holder[17] == 'V'){ // if the data is invalid, ignore
+        avgvel = -1;
+        break;
+      }
       if (holder[17] != 'A') // if the data is invalid, ignore
         break;
         
@@ -179,6 +185,7 @@ void loop()
         if (*parse == ',')
           k++;
         parse++;
+        
       }
 
       // send the parser to the decimal point of the velocity
@@ -191,11 +198,11 @@ void loop()
       while (*parse != ','){
         parse--;
         cvel[k] = *parse;
-        Serial.print("cvel[");
-        Serial.print(k);
-        Serial.print("] ");
-        Serial.write(cvel[k]);
-        Serial.println();
+        //Serial.print("cvel[");
+        //Serial.print(k);
+        //Serial.print("] ");
+        //Serial.write(cvel[k]);
+        //Serial.println();
         k++;
       }
 
@@ -205,10 +212,10 @@ void loop()
       for (k = (MOVAVG-1); k > 0; k--){
         ivel[k] = ivel[k-1]; 
         
-        Serial.print("ivel[");
-        Serial.print(k);
-        Serial.print("] ");
-        Serial.println(ivel[k]);
+        //Serial.print("ivel[");
+        //Serial.print(k);
+        //Serial.print("] ");
+        //Serial.println(ivel[k]);
       }
 
       // if speed is single digits, no ten
@@ -217,8 +224,8 @@ void loop()
         
       ivel[0] = charToInt(cvel[1], cvel[0]);
       
-      Serial.print("ivel[0] ");
-      Serial.println(ivel[0]);
+      //Serial.print("ivel[0] ");
+      //Serial.println(ivel[0]);
 
       for (k = 0; k < MOVAVG; k++)
         sum = sum + ivel[k];
@@ -272,11 +279,32 @@ void frameHandler()
     tail = 0;
   }
   */
-  if (avgvel < 10){
+  if (avgvel == -1){
     pwm_steps = 100;
-    pulse_in(head, tail);
-  }else if (avgvel >= 10){
+    pulse_in();
+  }else if (avgvel < 5){
+    pwm_steps = 200;
+    pulseIndividual();
+  }else if (avgvel >= 5 && avgvel < 10){
     pwm_steps = 400;
+    pulseIndividual();
+  }else if (avgvel >= 10 && avgvel < 15){
+    pwm_steps = 300;
+    pulse_out();
+  }else if (avgvel >= 15 && avgvel < 20){
+    pwm_steps = 500;
+    pulseIndividual();
+  }else if (avgvel >= 20 && avgvel < 30){
+    pwm_steps = 800;
+    pulseIndividual();
+  }else if (avgvel >= 30 && avgvel < 40){
+    pwm_steps = 1000;
+    pulseIndividual();
+  }else if (avgvel >= 40 && avgvel < 50){
+    pwm_steps = 1300;
+    pulseIndividual();
+  }else if (avgvel >= 50){
+    pwm_steps = 1500;
     pulseIndividual();
   }
   //LtoR(head, tail);
@@ -314,7 +342,7 @@ void allOn()
   driver.write();
 }
 
-void LtoR(int front, int back)
+void LtoR()
 {
   findOffsets(7);
 
@@ -328,7 +356,7 @@ void LtoR(int front, int back)
   //Serial.println("In LtoR");
 }
 
-void pulse_in(int front, int back)
+void pulse_in()
 {
   findOffsets(4);
 
@@ -339,6 +367,22 @@ void pulse_in(int front, int back)
       }
       if (doublearrows[j][i-1] < 23){
         driver.setLED(doublearrows[j][i-1], off[i/2], 0, 0);
+      }
+    }
+  }
+}
+
+void pulse_out()
+{
+  findOffsets(4);
+
+  for (i = 7; i >= 0; i=i-2){
+    for (j = 0; j < 5; j++){
+      if (outarrows[j][i] < 23){
+        driver.setLED(outarrows[j][i], off[i/2], 0, 0);
+      }
+      if (outarrows[j][i-1] < 23){
+        driver.setLED(outarrows[j][i-1], off[i/2], 0, 0);
       }
     }
   }
