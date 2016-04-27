@@ -270,15 +270,7 @@ void frameHandler()
       head = 4095;
     }
   }
-  /*
-  if (tail == 0){
-    dir_tail = 1;
-  }else if (tail == 4095){
-    dir_tail = 0;
-  }else if (tail > 4095 || tail < 0){
-    tail = 0;
-  }
-  */
+/*
   if (avgvel == -1){
     pwm_steps = 100;
     pulse_in();
@@ -307,12 +299,15 @@ void frameHandler()
     pwm_steps = 1500;
     pulseIndividual();
   }
+
+  */
+
+
+  
+  
   //LtoR(head, tail);
   //pulse_in(head, tail);
   //pulseIndividual();  
-  
-  //Serial.println("In frame handler");
-  //Serial.println(head);
 
   driver.write();
   
